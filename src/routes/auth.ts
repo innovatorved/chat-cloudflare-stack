@@ -1,5 +1,10 @@
 import { hashPassword, verifyPassword } from "../lib/crypto-utils";
-import { checkUserExists, createUser, getUserByEmail } from "../lib/db";
+import {
+  checkUserExists,
+  createUser,
+  getUserByEmail,
+  userHasAiKey,
+} from "../lib/db";
 import {
   type AuthPolicies,
   getAuthPolicies,
@@ -8,22 +13,20 @@ import {
 } from "../lib/policy";
 import {
   generateRandomUUID,
-  getSessionCookie,
+  getUserIdFromRequest,
   setSessionCookie,
 } from "../lib/utils";
 
 const getLoginAttemptsKey = (email: string) => `login-attempts:${email}`;
 const getLockoutKey = (email: string) => `login-lockout:${email}`;
 
-export async function checkAuthenticatedUserRoute(request: Request, _env: Env) {
-  const sess = getSessionCookie(request);
-  if (sess) {
-    try {
-      const session = JSON.parse(atob(sess));
-      if (session.userId) return Response.json({ authenticated: true });
-    } catch {}
+export async function checkAuthenticatedUserRoute(request: Request, env: Env) {
+  const userId = getUserIdFromRequest(request);
+  if (!userId) {
+    return Response.json({ authenticated: false, hasAiKey: false });
   }
-  return Response.json({ authenticated: false });
+  const hasKey = await userHasAiKey(env, userId);
+  return Response.json({ authenticated: true, hasAiKey: hasKey });
 }
 
 export async function loginUserRoute(request: Request, env: Env) {
@@ -76,7 +79,8 @@ export async function loginUserRoute(request: Request, env: Env) {
   await env.CACHE_CHAT.delete(getLockoutKey(email));
 
   // 5. Normal response
-  const resp = Response.json({ success: true });
+  const hasKey = await userHasAiKey(env, user.userId);
+  const resp = Response.json({ success: true, hasAiKey: hasKey });
   resp.headers.set("Set-Cookie", setSessionCookie(user.userId));
   return resp;
 }
@@ -125,7 +129,7 @@ export async function registerUserRoute(request: Request, env: Env) {
   const userId = generateRandomUUID();
   await createUser(env, userId, email, hash, salt);
 
-  const resp = Response.json({ success: true });
+  const resp = Response.json({ success: true, hasAiKey: false });
   resp.headers.set("Set-Cookie", setSessionCookie(userId));
   return resp;
 }

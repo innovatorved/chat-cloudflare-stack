@@ -93,3 +93,67 @@ function timingSafeEqualHex(a: string, b: string): boolean {
   }
   return out === 0;
 }
+
+async function deriveEncryptionKey(
+  masterSecret: string,
+  userId: string,
+): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(masterSecret),
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"],
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: enc.encode(userId),
+      iterations: PBKDF2_ITERATIONS,
+      hash: PBKDF2_HASH,
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+export async function encryptSecret(
+  plaintext: string,
+  masterSecret: string,
+  userId: string,
+): Promise<{ ciphertext: string; iv: string }> {
+  const key = await deriveEncryptionKey(masterSecret, userId);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(plaintext),
+  );
+
+  return {
+    ciphertext: toHex(new Uint8Array(encrypted)),
+    iv: toHex(iv),
+  };
+}
+
+export async function decryptSecret(
+  ciphertextHex: string,
+  ivHex: string,
+  masterSecret: string,
+  userId: string,
+): Promise<string> {
+  const key = await deriveEncryptionKey(masterSecret, userId);
+  const iv = new Uint8Array(fromHex(ivHex));
+  const ciphertext = new Uint8Array(fromHex(ciphertextHex));
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext,
+  );
+
+  return new TextDecoder().decode(decrypted);
+}

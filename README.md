@@ -1,10 +1,17 @@
 # Cloudflare Chat App
 
-Real-time AI chat on Cloudflare Workers — Durable Objects, D1, KV, and custom auth.
+Real-time AI chat on Cloudflare Workers. Users sign in, add their own Google AI key, and chat in persistent rooms backed by Durable Objects and D1.
 
 **Live:** [chat.vedgupta.in](https://chat.vedgupta.in)
 
-**Stack:** React, Vite, Workers, Durable Objects, D1, KV, AI SDK, [@cloudflare/ai-chat](https://www.npmjs.com/package/@cloudflare/ai-chat). Tooling: [Bun](https://bun.sh), TypeScript, [Biome](https://biomejs.dev).
+---
+
+## How it works
+
+- **Auth** — Email/password signup and login. Sessions are cookie-based.
+- **Auth policies** — Password rules, allowed email domains, and login lockout live in `auth-policies.json` and are stored in KV.
+- **AI keys** — Each user enters their own Google AI key after login. Keys are encrypted in D1 (`AI_KEY_ENCRYPTION_SECRET` on the server). Update anytime from **Settings** (gear icon).
+- **Database** — D1 holds users, chats, and encrypted keys. Durable Objects hold live chat/agent state.
 
 ---
 
@@ -16,43 +23,60 @@ cd chat-cloudflare-stack
 bun install
 ```
 
-1. Configure bindings in `wrangler.jsonc` (D1, KV, Durable Objects).
-2. Copy `.dev.vars.example` → `.dev.vars` for local secrets.
-3. Set the Google AI key (production):
+### Wrangler & secrets
+
+Configure D1, KV, and Durable Object bindings in `wrangler.jsonc`.
+
+For local dev, copy `.dev.vars.example` to `.dev.vars` and set a random `AI_KEY_ENCRYPTION_SECRET` (32+ characters). This encrypts user API keys at rest — it is **not** a Google AI key.
+
+Production:
 
 ```bash
-bunx wrangler secret put GOOGLE_GENERATIVE_AI_API_KEY
+bunx wrangler secret put AI_KEY_ENCRYPTION_SECRET
 ```
 
-4. Apply the D1 schema:
+### Database (D1)
+
+New install:
 
 ```bash
-bunx wrangler d1 execute chat-user-id-db --local --file=./schema.sql   # local
-bunx wrangler d1 execute chat-user-id-db --remote --file=./schema.sql  # production
+bunx wrangler d1 execute chat-user-id-db --remote --file=./schema.sql
 ```
 
-5. Upload auth policies from `auth-policies.json`:
+Existing database (adds encrypted key columns):
 
 ```bash
-bunx wrangler kv key put --binding=CACHE_CHAT auth-policies "$(cat auth-policies.json)" --local
+bunx wrangler d1 execute chat-user-id-db --remote --file=./schema-migration-ai-key.sql
+```
+
+Local dev: add `--local` instead of `--remote`.
+
+### Auth policies (KV)
+
+Edit `auth-policies.json` for password rules, allowed domains, and lockout settings, then upload:
+
+```bash
 bunx wrangler kv key put --binding=CACHE_CHAT auth-policies "$(cat auth-policies.json)"
 ```
 
-6. Run locally:
+Add `--local` for local dev.
+
+### Run
 
 ```bash
 bun run start
 ```
+
+After login, add a Google AI key from [Google AI Studio](https://aistudio.google.com/apikey) when prompted.
 
 ---
 
 ## Deploy
 
 ```bash
+bun run check   # optional
 bun run deploy
 ```
-
-Production is served on the custom domain only (`workers_dev` and preview URLs are disabled in `wrangler.jsonc`).
 
 ---
 

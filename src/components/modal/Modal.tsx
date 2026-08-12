@@ -1,8 +1,8 @@
 import { X } from "@phosphor-icons/react";
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/button/Button";
 import { Card } from "@/components/card/Card";
-import useClickOutside from "@/hooks/useClickOutside";
 import { cn } from "@/lib/utils";
 
 type ModalProps = {
@@ -20,11 +20,8 @@ export const Modal = ({
   isOpen,
   onClose,
 }: ModalProps) => {
-  const clickOutsideRef = useClickOutside(onClose);
-  const fallbackRef = useRef<HTMLDivElement>(null);
-  const modalRef = clickOutsideToClose ? clickOutsideRef : fallbackRef;
+  const modalRef = useRef<HTMLDivElement>(null);
 
-  // Stop site overflow when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -37,7 +34,29 @@ export const Modal = ({
     };
   }, [isOpen]);
 
-  // Tab focus
+  useEffect(() => {
+    if (!isOpen || !clickOutsideToClose) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (
+        modalRef.current &&
+        !modalRef.current.contains(event.target as Node)
+      ) {
+        onClose();
+      }
+    };
+
+    // Defer so the click that opened the modal does not close it immediately.
+    const frame = requestAnimationFrame(() => {
+      document.addEventListener("click", handleClick);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("click", handleClick);
+    };
+  }, [isOpen, clickOutsideToClose, onClose]);
+
   useEffect(() => {
     if (!isOpen || !modalRef.current) return;
 
@@ -53,17 +72,13 @@ export const Modal = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Tab") {
         if (e.shiftKey) {
-          // Shift + Tab moves focus backward
           if (document.activeElement === firstElement) {
             e.preventDefault();
             lastElement.focus();
           }
-        } else {
-          // Tab moves focus forward
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
+        } else if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
         }
       }
       if (e.key === "Escape") {
@@ -75,16 +90,21 @@ export const Modal = ({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose, modalRef.current]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed top-0 left-0 z-50 flex h-screen w-full items-center justify-center bg-transparent p-6">
-      <div className="fade fixed top-0 left-0 h-full w-full bg-black/5 backdrop-blur-[2px]" />
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex h-screen w-full items-center justify-center p-6">
+      <button
+        type="button"
+        aria-label="Close modal backdrop"
+        className="fade absolute inset-0 bg-black/20 backdrop-blur-[2px]"
+        onClick={clickOutsideToClose ? onClose : undefined}
+      />
 
       <Card
-        className={cn("reveal reveal-sm relative z-50 max-w-md", className)}
+        className={cn("reveal reveal-sm relative z-[101] max-w-md", className)}
         ref={modalRef}
         tabIndex={-1}
       >
@@ -100,6 +120,7 @@ export const Modal = ({
           <X size={16} />
         </Button>
       </Card>
-    </div>
+    </div>,
+    document.body,
   );
 };

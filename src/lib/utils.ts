@@ -58,6 +58,17 @@ export function getSessionCookie(request: Request): string | null {
   return match ? match[1] : null;
 }
 
+export function getUserIdFromRequest(request: Request): string | null {
+  const sess = getSessionCookie(request);
+  if (!sess) return null;
+  try {
+    const session = JSON.parse(atob(sess)) as { userId?: string };
+    return session.userId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function processChatsData(results: Record<string, unknown>[]) {
   const chats =
     results.map((chat) => ({

@@ -11,14 +11,21 @@ import {
   type ToolSet,
 } from "ai";
 import { tools } from "@/tools";
-import { model } from "./lib/ai";
-import { createChat, getChatById, getChatsByUserId } from "./lib/db";
+import { createUserModel } from "./lib/ai";
+import { getUserDecryptedAiKey } from "./lib/ai-key";
+import {
+  createChat,
+  getChatById,
+  getChatsByUserId,
+  userHasAiKey,
+} from "./lib/db";
 import { getAuthPolicies } from "./lib/policy";
 import {
   generateRandomUUID,
-  getSessionCookie,
+  getUserIdFromRequest,
   processChatsData,
 } from "./lib/utils";
+import { aiKeyStatusRoute, saveAiKeyRoute } from "./routes/ai-key";
 import {
   checkAuthenticatedUserRoute,
   loginUserRoute,
@@ -28,14 +35,67 @@ import {
 
 export const agentContext = new AsyncLocalStorage<Chat>();
 
+export type AgentRequestContext = {
+  userId: string;
+  chatId: string;
+};
+
+export const agentRequestContext = new AsyncLocalStorage<AgentRequestContext>();
+
 export class Chat extends AIChatAgent<Env> {
+  private sessionUserId: string | null = null;
+
+  private resolveChatId(request: Request): string {
+    return (
+      request.headers.get("chatId") ??
+      new URL(request.url).searchParams.get("_pk") ??
+      this.ctx.id.name ??
+      ""
+    );
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const userId = getUserIdFromRequest(request);
+    if (userId) {
+      this.sessionUserId = userId;
+    }
+
+    const chatId = this.resolveChatId(request);
+
+    return agentRequestContext.run({ chatId, userId: userId ?? "" }, () =>
+      super.fetch(request),
+    );
+  }
+
   async onChatMessage(
     onFinish?: GenerateTextOnFinishCallback<ToolSet>,
     _options?: OnChatMessageOptions,
   ) {
     return agentContext.run(this, async () => {
+      const chatId =
+        this.ctx.id.name ?? agentRequestContext.getStore()?.chatId ?? "";
+
+      let userId = this.sessionUserId ?? "";
+      if (chatId) {
+        const chat = await getChatById(this.env, chatId);
+        if (chat?.userId) {
+          userId = chat.userId;
+        } else if (userId) {
+          await createChat(this.env, userId, chatId, "New Chat");
+        }
+      }
+
+      if (!userId) {
+        return Response.json({ error: "Not authenticated" }, { status: 401 });
+      }
+
+      const apiKey = await getUserDecryptedAiKey(this.env, userId);
+      if (!apiKey) {
+        return Response.json({ error: "AI key required" }, { status: 403 });
+      }
+
       const result = streamText({
-        model: model,
+        model: createUserModel(apiKey),
         system: `You are a helpful assistant...
 ${getSchedulePrompt({ date: new Date() })}
 If the user asks to schedule a task, use the schedule tool to schedule the task.`,
@@ -68,30 +128,28 @@ export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext) {
     const url = new URL(request.url);
 
-    // 1. Healthcheck for API key
-    if (url.pathname === "/check-open-ai-key") {
-      const hasOpenAIKey = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      return Response.json({ success: hasOpenAIKey });
-    }
-
-    // 2. Auth - Me
     if (url.pathname === "/auth/me") {
       return await checkAuthenticatedUserRoute(request, env);
     }
 
-    // 3. Auth - Logout
     if (url.pathname === "/auth/logout") {
       return logoutUserRoute(request, env);
     }
 
-    // 4. Auth - Signup
     if (url.pathname === "/auth/signup") {
       return await registerUserRoute(request, env);
     }
 
-    // 5. Auth - Login
     if (url.pathname === "/auth/login") {
       return await loginUserRoute(request, env);
+    }
+
+    if (url.pathname === "/auth/ai-key/status") {
+      return aiKeyStatusRoute(request, env);
+    }
+
+    if (url.pathname === "/auth/ai-key") {
+      return saveAiKeyRoute(request, env);
     }
 
     if (url.pathname === "/auth/policy") {
@@ -99,41 +157,38 @@ export default {
       return Response.json(policies);
     }
 
-    // 6. -- "Authenticated" part of the app --
-    let userId = "no_user";
-    const sess = getSessionCookie(request);
-    if (sess) {
-      try {
-        const session = JSON.parse(atob(sess));
-        if (session.userId) userId = session.userId;
-      } catch {}
+    const userId = getUserIdFromRequest(request);
+    if (!userId) {
+      if (url.pathname === "/api/chats") {
+        return Response.json([], { status: 401 });
+      }
+      return Response.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // 7. Chats: only show for logged-in users
     if (url.pathname === "/api/chats") {
-      if (userId === "no_user") return Response.json([], { status: 401 });
-
       const results = await getChatsByUserId(env, userId);
       const chats = processChatsData(results);
-
       return Response.json(chats);
     }
 
-    // 8. Create chat if not present (auto)
     const title = request.headers.get("title") || "title";
     const chatId =
       request.headers.get("chatId") || url.searchParams.get("_pk") || "no_user";
-    if (userId !== "no_user" && chatId !== "no_user") {
-      // create chat if missing
-      const result = await getChatById(env, chatId);
-      if (!result) {
+
+    if (chatId !== "no_user") {
+      const existingChat = await getChatById(env, chatId);
+      if (existingChat) {
+        if (existingChat.userId !== userId) {
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        }
+      } else {
         await createChat(env, userId, chatId, title);
       }
     }
 
-    // 9. Chat agent handoff
-    if (userId === "no_user")
-      return Response.json({ error: "Not authenticated" }, { status: 401 });
+    if (!(await userHasAiKey(env, userId))) {
+      return Response.json({ error: "AI key required" }, { status: 403 });
+    }
 
     const namedAgent = getAgentByName<Env, Chat>(env.Chat, chatId);
     const namedResp = (await namedAgent).fetch(request);

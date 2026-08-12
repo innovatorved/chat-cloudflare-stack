@@ -7,7 +7,7 @@ export default function Login({
   onLogin,
   setView,
 }: {
-  onLogin: () => void;
+  onLogin: (hasAiKey: boolean) => void;
   setView: (v: "login" | "signup") => void;
 }) {
   const [email, setEmail] = useState("");
@@ -22,9 +22,13 @@ export default function Login({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await resp.json<{ success: boolean; message?: string }>();
+    const data = await resp.json<{
+      success: boolean;
+      message?: string;
+      hasAiKey?: boolean;
+    }>();
     if (data.success) {
-      onLogin();
+      onLogin(!!data.hasAiKey);
     } else {
       setError(data.message || "Login failed.");
     }

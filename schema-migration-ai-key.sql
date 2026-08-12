@@ -1,0 +1,2 @@
+ALTER TABLE Users ADD COLUMN aiKeyCiphertext TEXT;
+ALTER TABLE Users ADD COLUMN aiKeyIv TEXT;

@@ -7,7 +7,7 @@ export default function SignUp({
   onSignUp,
   setView,
 }: {
-  onSignUp: () => void;
+  onSignUp: (hasAiKey: boolean) => void;
   setView: (v: "login" | "signup") => void;
 }) {
   const [email, setEmail] = useState("");
@@ -22,9 +22,13 @@ export default function SignUp({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await resp.json<{ success: boolean; message?: string }>();
+    const data = await resp.json<{
+      success: boolean;
+      message?: string;
+      hasAiKey?: boolean;
+    }>();
     if (data.success) {
-      onSignUp();
+      onSignUp(!!data.hasAiKey);
     } else {
       setError(data.message || "Signup failed.");
     }

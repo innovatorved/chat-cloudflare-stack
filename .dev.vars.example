@@ -1,3 +1,1 @@
-GOOGLE_GENERATIVE_AI_API_KEY=sk-proj-1234567890
-# Optional - Cloudflare AI Gateway https://developers.cloudflare.com/ai-gateway/
-# GATEWAY_BASE_URL=https://gateway.ai.cloudflare.com/v1/..
+AI_KEY_ENCRYPTION_SECRET=replace-with-a-long-random-secret-at-least-32-chars

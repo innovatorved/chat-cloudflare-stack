@@ -72,15 +72,51 @@ export async function getChatsByUserId(env: Env, userId: string) {
 
 export async function getChatById(env: Env, chatId: string) {
   const cacheKey = `chat:${chatId}`;
-  const chat = await kvGet<Record<string, unknown> | null>(env, cacheKey);
+  const chat = await kvGet<{ chatId: string; userId: string } | null>(
+    env,
+    cacheKey,
+  );
   if (chat) return chat;
 
-  const row = await env.DB.prepare("SELECT chatId FROM Chats WHERE chatId = ?")
+  const row = await env.DB.prepare(
+    "SELECT chatId, userId FROM Chats WHERE chatId = ?",
+  )
     .bind(chatId)
-    .first();
+    .first<{ chatId: string; userId: string }>();
 
   if (row) await kvSet(env, cacheKey, row);
+  return row ?? null;
+}
+
+export async function getUserAiKeyRecord(env: Env, userId: string) {
+  const row = await env.DB.prepare(
+    "SELECT aiKeyCiphertext, aiKeyIv FROM Users WHERE userId = ?",
+  )
+    .bind(userId)
+    .first<{ aiKeyCiphertext: string | null; aiKeyIv: string | null }>();
+
+  if (!row) return null;
   return row;
+}
+
+export async function userHasAiKey(env: Env, userId: string): Promise<boolean> {
+  const record = await getUserAiKeyRecord(env, userId);
+  return !!(record?.aiKeyCiphertext && record?.aiKeyIv);
+}
+
+export async function setUserAiKey(
+  env: Env,
+  userId: string,
+  ciphertext: string,
+  iv: string,
+) {
+  await env.DB.prepare(
+    "UPDATE Users SET aiKeyCiphertext = ?, aiKeyIv = ? WHERE userId = ?",
+  )
+    .bind(ciphertext, iv, userId)
+    .run();
+
+  await kvDel(env, `user-ai-key:${userId}`);
 }
 
 export async function createChat(

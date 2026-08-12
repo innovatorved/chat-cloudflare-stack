@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS Users (
   userId TEXT PRIMARY KEY,
   email TEXT UNIQUE,
   passwordHash TEXT NOT NULL,
-  passwordSalt TEXT NOT NULL
+  passwordSalt TEXT NOT NULL,
+  aiKeyCiphertext TEXT,
+  aiKeyIv TEXT
 );
 
 -- Create Chats table
