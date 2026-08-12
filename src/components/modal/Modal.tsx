@@ -1,9 +1,8 @@
+import { X } from "@phosphor-icons/react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/button/Button";
 import { Card } from "@/components/card/Card";
 import useClickOutside from "@/hooks/useClickOutside";
-import { X } from "@phosphor-icons/react";
-
-import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 type ModalProps = {
@@ -21,9 +20,9 @@ export const Modal = ({
   isOpen,
   onClose,
 }: ModalProps) => {
-  const modalRef = clickOutsideToClose
-    ? useClickOutside(onClose)
-    : useRef<HTMLDivElement>(null);
+  const clickOutsideRef = useClickOutside(onClose);
+  const fallbackRef = useRef<HTMLDivElement>(null);
+  const modalRef = clickOutsideToClose ? clickOutsideRef : fallbackRef;
 
   // Stop site overflow when modal is open
   useEffect(() => {
@@ -43,7 +42,7 @@ export const Modal = ({
     if (!isOpen || !modalRef.current) return;
 
     const focusableElements = modalRef.current.querySelectorAll(
-      'a, button, input, textarea, select, details, [tabindex]:not([tabindex="-1"])'
+      'a, button, input, textarea, select, details, [tabindex]:not([tabindex="-1"])',
     ) as NodeListOf<HTMLElement>;
 
     const firstElement = focusableElements[0];

@@ -1,4 +1,4 @@
-import { kvGet, kvSet, kvDel } from "./cache";
+import { kvDel, kvGet, kvSet } from "./cache";
 
 export async function checkUserExists(env: Env, email: string) {
   const cacheKey = `user-exists:${email}`;
@@ -33,18 +33,18 @@ export async function createUser(
 
 export async function getUserByEmail(env: Env, email: string) {
   const cacheKey = `user-by-email:${email}`;
-  let user = await kvGet<{
+  const cached = await kvGet<{
     userId: string;
     passwordHash: string;
     passwordSalt: string;
   }>(env, cacheKey);
-  if (user) return user;
+  if (cached) return cached;
 
   const row = await env.DB.prepare(
     "SELECT userId, passwordHash, passwordSalt FROM Users WHERE email = ?",
   )
     .bind(email)
-    .first();
+    .first<{ userId: string; passwordHash: string; passwordSalt: string }>();
 
   if (row) {
     await kvSet(env, cacheKey, row);
@@ -54,23 +54,25 @@ export async function getUserByEmail(env: Env, email: string) {
 
 export async function getChatsByUserId(env: Env, userId: string) {
   const cacheKey = `chats-by-user:${userId}`;
-  let results = await kvGet<any[]>(env, cacheKey);
-  if (results) return results;
+  const cached = await kvGet<
+    Array<{ chatId: string; title: string; createdTime: string }>
+  >(env, cacheKey);
+  if (cached) return cached;
 
   const query = await env.DB.prepare(
     "SELECT chatId, title, createdTime FROM Chats WHERE userId = ? ORDER BY createdTime DESC",
   )
     .bind(userId)
-    .all();
+    .all<{ chatId: string; title: string; createdTime: string }>();
 
-  results = query.results;
+  const results = query.results;
   await kvSet(env, cacheKey, results);
   return results;
 }
 
 export async function getChatById(env: Env, chatId: string) {
   const cacheKey = `chat:${chatId}`;
-  let chat = await kvGet<Record<string, unknown> | null>(env, cacheKey);
+  const chat = await kvGet<Record<string, unknown> | null>(env, cacheKey);
   if (chat) return chat;
 
   const row = await env.DB.prepare("SELECT chatId FROM Chats WHERE chatId = ?")

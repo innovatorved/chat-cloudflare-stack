@@ -1,8 +1,8 @@
-import { cn } from "@/lib/utils";
 import { useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export const inputClasses = cn(
-  "bg-ob-btn-secondary-bg text-ob-base-300 border-ob-border focus:border-ob-border-active placeholder:text-ob-base-100 add-disable border border-1 transition-colors focus:outline-none"
+  "bg-ob-btn-secondary-bg text-ob-base-300 border-ob-border focus:border-ob-border-active placeholder:text-ob-base-100 add-disable border border-1 transition-colors focus:outline-none",
 );
 
 export type InputProps = Omit<
@@ -60,6 +60,7 @@ export const Input = ({
 
   return preText ? (
     // biome-ignore lint/a11y/useKeyWithClickEvents: todo
+    // biome-ignore lint/a11y/noStaticElementInteractions: pre-text wrapper is intentionally clickable
     <div
       className={cn(
         "has-[:disabled]:ob-disable has-[:enabled]:active:border-ob-border-active has-[:focus]:border-ob-border-active flex cursor-text",
@@ -69,7 +70,7 @@ export const Input = ({
           "add-size-md": size === "md",
           "add-size-base": size === "base",
         },
-        className
+        className,
       )}
       onClick={handlePreTextInputClick}
     >
@@ -82,7 +83,7 @@ export const Input = ({
           "placeholder:text-ob-base-100 w-full bg-transparent focus:outline-none",
           {
             "text-ob-destructive": !isValid,
-          }
+          },
         )}
         onChange={updateCurrentValue}
         ref={inputRef}
@@ -104,7 +105,7 @@ export const Input = ({
           "add-size-md": size === "md",
           "add-size-base": size === "base",
         },
-        className
+        className,
       )}
       onChange={updateCurrentValue}
       value={currentValue}

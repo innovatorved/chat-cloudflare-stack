@@ -1,21 +1,21 @@
 import { hashPassword, verifyPassword } from "../lib/crypto-utils";
 import { checkUserExists, createUser, getUserByEmail } from "../lib/db";
 import {
+  type AuthPolicies,
+  getAuthPolicies,
+  isEmailAllowed,
+  isPasswordValid,
+} from "../lib/policy";
+import {
   generateRandomUUID,
   getSessionCookie,
   setSessionCookie,
 } from "../lib/utils";
 
-import {
-  getAuthPolicies,
-  isPasswordValid,
-  isEmailAllowed,
-} from "../lib/policy";
-
 const getLoginAttemptsKey = (email: string) => `login-attempts:${email}`;
 const getLockoutKey = (email: string) => `login-lockout:${email}`;
 
-export async function checkAuthenticatedUserRoute(request: Request, env: Env) {
+export async function checkAuthenticatedUserRoute(request: Request, _env: Env) {
   const sess = getSessionCookie(request);
   if (sess) {
     try {
@@ -56,7 +56,7 @@ export async function loginUserRoute(request: Request, env: Env) {
 
   // 3. Lookup user
   const user = await getUserByEmail(env, email);
-  if (!user || !user.passwordHash || !user.passwordSalt) {
+  if (!user?.passwordHash || !user.passwordSalt) {
     await recordFailedLogin(env, email, policies);
     return Response.json({ success: false, message: "Invalid credentials" });
   }
@@ -130,7 +130,7 @@ export async function registerUserRoute(request: Request, env: Env) {
   return resp;
 }
 
-export function logoutUserRoute(request: Request, env: Env) {
+export function logoutUserRoute(_request: Request, _env: Env) {
   const resp = Response.json({ success: true });
   resp.headers.set(
     "Set-Cookie",
@@ -139,7 +139,11 @@ export function logoutUserRoute(request: Request, env: Env) {
   return resp;
 }
 
-async function recordFailedLogin(env: Env, email: string, policies: any) {
+async function recordFailedLogin(
+  env: Env,
+  email: string,
+  policies: AuthPolicies,
+) {
   const attemptsKey = getLoginAttemptsKey(email);
   // Stringify integer just in case
   let attempts = parseInt((await env.CACHE_CHAT.get(attemptsKey)) ?? "0", 10);

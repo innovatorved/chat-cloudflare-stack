@@ -1,18 +1,8 @@
-import { useEffect, useState, useRef, useCallback, use } from "react";
-import { useAgent } from "agents/react";
-import { useAgentChat } from "agents/ai-react";
-import type { Message } from "@ai-sdk/react";
-import { APPROVAL } from "./shared";
-import type { tools } from "./tools";
-
-// Component imports
-import { Button } from "@/components/button/Button";
-import { Card } from "@/components/card/Card";
-import { Input } from "@/components/input/Input";
-import { Avatar } from "@/components/avatar/Avatar";
-import { Toggle } from "@/components/toggle/Toggle";
-import { Tooltip } from "@/components/tooltip/Tooltip";
-
+import {
+  getToolInput,
+  getToolPartState,
+  useAgentChat,
+} from "@cloudflare/ai-chat/react";
 // Icon imports
 import {
   Bug,
@@ -22,6 +12,20 @@ import {
   Sun,
   Trash,
 } from "@phosphor-icons/react";
+import { useAgent } from "agents/react";
+import type { UIMessage } from "ai";
+import { getToolName, isToolUIPart } from "ai";
+import { use, useCallback, useEffect, useRef, useState } from "react";
+import { Avatar } from "@/components/avatar/Avatar";
+
+// Component imports
+import { Button } from "@/components/button/Button";
+import { Card } from "@/components/card/Card";
+import { Input } from "@/components/input/Input";
+import { Toggle } from "@/components/toggle/Toggle";
+import { Tooltip } from "@/components/tooltip/Tooltip";
+import { APPROVAL } from "./shared";
+import type { tools } from "./tools";
 
 // List of tools that require human confirmation
 const toolsRequiringConfirmation: (keyof typeof tools)[] = [];
@@ -33,6 +37,7 @@ export default function Chat({
   toggleTheme = () => {},
 }) {
   const [showDebug, setShowDebug] = useState(false);
+  const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -51,10 +56,8 @@ export default function Chat({
 
   const {
     messages: agentMessages,
-    input: agentInput,
-    handleInputChange: handleAgentInputChange,
-    handleSubmit: handleAgentSubmit,
-    addToolResult,
+    sendMessage,
+    addToolOutput,
     clearHistory,
   } = useAgentChat({
     body: {
@@ -66,7 +69,6 @@ export default function Chat({
     },
     id: chatId,
     agent,
-    maxSteps: 5,
   });
 
   // Scroll to bottom when messages change
@@ -74,19 +76,27 @@ export default function Chat({
     agentMessages.length > 0 && scrollToBottom();
   }, [agentMessages, scrollToBottom]);
 
-  const pendingToolCallConfirmation = agentMessages.some((m: Message) =>
-    m.parts?.some(
-      (part) =>
-        part.type === "tool-invocation" &&
-        part.toolInvocation.state === "call" &&
+  const pendingToolCallConfirmation = agentMessages.some((m: UIMessage) =>
+    m.parts?.some((part) => {
+      if (!isToolUIPart(part)) return false;
+      return (
+        getToolPartState(part) === "waiting-approval" &&
         toolsRequiringConfirmation.includes(
-          part.toolInvocation.toolName as keyof typeof tools,
-        ),
-    ),
+          getToolName(part) as keyof typeof tools,
+        )
+      );
+    }),
   );
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pendingToolCallConfirmation || !input.trim()) return;
+    sendMessage({ text: input });
+    setInput("");
   };
 
   return (
@@ -176,11 +186,10 @@ export default function Chat({
             </div>
           )}
 
-          {agentMessages.map((m: Message, index) => {
+          {agentMessages.map((m: UIMessage, index: number) => {
             const isUser = m.role === "user";
             const showAvatar =
               index === 0 || agentMessages[index - 1]?.role !== m.role;
-            const showRole = showAvatar && !isUser;
 
             return (
               <div key={m.id}>
@@ -240,23 +249,22 @@ export default function Chat({
                                     isUser ? "text-right" : "text-left"
                                   }`}
                                 >
-                                  {formatTime(
-                                    new Date(m.createdAt as unknown as string),
-                                  )}
+                                  {formatTime(new Date())}
                                 </p>
                               </div>
                             );
                           }
 
-                          if (part.type === "tool-invocation") {
-                            const toolInvocation = part.toolInvocation;
-                            const toolCallId = toolInvocation.toolCallId;
+                          if (isToolUIPart(part)) {
+                            const toolName = getToolName(part);
+                            const toolCallId = part.toolCallId;
+                            const toolState = getToolPartState(part);
 
                             if (
                               toolsRequiringConfirmation.includes(
-                                toolInvocation.toolName as keyof typeof tools,
+                                toolName as keyof typeof tools,
                               ) &&
-                              toolInvocation.state === "call"
+                              toolState === "waiting-approval"
                             ) {
                               return (
                                 <Card
@@ -271,9 +279,7 @@ export default function Chat({
                                         className="text-[#F48120]"
                                       />
                                     </div>
-                                    <h4 className="font-medium">
-                                      {toolInvocation.toolName}
-                                    </h4>
+                                    <h4 className="font-medium">{toolName}</h4>
                                   </div>
 
                                   <div className="mb-3">
@@ -282,7 +288,7 @@ export default function Chat({
                                     </h5>
                                     <pre className="bg-background/80 p-2 rounded-md text-xs overflow-auto">
                                       {JSON.stringify(
-                                        toolInvocation.args,
+                                        getToolInput(part),
                                         null,
                                         2,
                                       )}
@@ -294,9 +300,9 @@ export default function Chat({
                                       variant="primary"
                                       size="sm"
                                       onClick={() =>
-                                        addToolResult({
+                                        addToolOutput({
                                           toolCallId,
-                                          result: APPROVAL.NO,
+                                          output: APPROVAL.NO,
                                         })
                                       }
                                     >
@@ -307,9 +313,9 @@ export default function Chat({
                                         variant="primary"
                                         size="sm"
                                         onClick={() =>
-                                          addToolResult({
+                                          addToolOutput({
                                             toolCallId,
-                                            result: APPROVAL.YES,
+                                            output: APPROVAL.YES,
                                           })
                                         }
                                       >
@@ -334,17 +340,8 @@ export default function Chat({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area - FIXED: Reorganized input, submit button, and attribution */}
         <form
-          onSubmit={(e) =>
-            handleAgentSubmit(e, {
-              data: {
-                annotations: {
-                  hello: "world",
-                },
-              },
-            })
-          }
+          onSubmit={handleSubmit}
           className="p-3 bg-input-background absolute bottom-0 left-0 right-0 z-10 border-t border-neutral-300 dark:border-neutral-800"
         >
           <div className="flex items-center gap-2">
@@ -357,12 +354,12 @@ export default function Chat({
                     : "Type your message..."
                 }
                 className="pl-4 pr-10 py-2 w-full rounded-full"
-                value={agentInput}
-                onChange={handleAgentInputChange}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    handleAgentSubmit(e as unknown as React.FormEvent);
+                    handleSubmit(e);
                   }
                 }}
                 onValueChange={undefined}
@@ -373,13 +370,12 @@ export default function Chat({
               type="submit"
               shape="square"
               className="rounded-full h-10 w-10"
-              disabled={pendingToolCallConfirmation || !agentInput.trim()}
+              disabled={pendingToolCallConfirmation || !input.trim()}
             >
               <PaperPlaneRight size={16} />
             </Button>
           </div>
 
-          {/* Attribution Footer - FIXED: Moved outside of flex-shrink-0 column and made it full width */}
           <div className="pt-2 text-xs text-center text-muted-foreground">
             Built by Ved Gupta with Cloudflare Stack.
             <a

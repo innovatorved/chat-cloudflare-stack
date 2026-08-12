@@ -28,7 +28,7 @@ export const Card = ({
           "btn-primary": variant === "primary",
           "btn-secondary": variant === "secondary",
         },
-        className
+        className,
       )}
       ref={ref}
       tabIndex={tabIndex}

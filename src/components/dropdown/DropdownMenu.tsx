@@ -1,8 +1,7 @@
 import { DotsThree, IconContext } from "@phosphor-icons/react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-
-import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
@@ -31,7 +30,7 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
+  },
 );
 
 export type MenuItemProps = {
@@ -89,9 +88,9 @@ const DropdownMenu = ({
                 // interaction: 'none',
                 class:
                   "radix-state-open:text-neutral-950 dark:radix-state-open:text-white focus-visible:opacity-100",
-              }
+              },
             ),
-        className
+        className,
       )}
       disabled={disabled}
     >
@@ -114,7 +113,7 @@ const DropdownMenu = ({
             "origin-bottom-right": align === "end" && side === "top",
             "origin-bottom-left": align === "start" && side === "top",
             "text-sm font-normal": size === "sm",
-          }
+          },
         )}
       >
         {MenuItems?.map((item, index) => {
@@ -122,8 +121,6 @@ const DropdownMenu = ({
             return (
               <header
                 className="px-2.5 py-2.5 dark:border-neutral-800"
-                onClick={(e) => e.preventDefault()}
-                onKeyDown={(e) => e.preventDefault()}
                 // biome-ignore lint/suspicious/noArrayIndexKey: TODO
                 key={index}
               >
@@ -167,7 +164,7 @@ const DropdownMenu = ({
                       {
                         "radix-highlighted:bg-red-50 radix-highlighted:text-red-600 dark:radix-highlighted:bg-red-500/10 dark:radix-highlighted:text-red-400 text-red-500 dark:text-red-400/90":
                           item.destructiveAction,
-                      }
+                      },
                     )}
                   >
                     {item.label}
@@ -183,6 +180,7 @@ const DropdownMenu = ({
               </DropdownMenuPrimitive.Item>
             );
           }
+          return null;
         })}
       </DropdownMenuPrimitive.Content>
     </DropdownMenuPrimitive.Portal>

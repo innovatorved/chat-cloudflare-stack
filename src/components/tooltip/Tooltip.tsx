@@ -1,6 +1,6 @@
-import { useTooltip } from "@/providers/TooltipProvider";
-import { cn } from "@/lib/utils";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useTooltip } from "@/providers/TooltipProvider";
 
 export type TooltipProps = {
   children: React.ReactNode;
@@ -12,7 +12,7 @@ export type TooltipProps = {
 export const Tooltip = ({ children, className, content, id }: TooltipProps) => {
   const { activeTooltip, showTooltip, hideTooltip } = useTooltip();
   const [positionX, setPositionX] = useState<"center" | "left" | "right">(
-    "center"
+    "center",
   );
   const [positionY, setPositionY] = useState<"top" | "bottom">("top");
   const [isHoverAvailable, setIsHoverAvailable] = useState(false); // if hover state exists
@@ -56,6 +56,7 @@ export const Tooltip = ({ children, className, content, id }: TooltipProps) => {
   }, [isVisible]);
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: tooltip trigger wraps arbitrary children
     <div
       aria-describedby={isVisible ? tooltipId : undefined}
       className={cn("relative inline-block", className)}
@@ -93,7 +94,7 @@ export const Tooltip = ({ children, className, content, id }: TooltipProps) => {
               "left-1/2 -translate-x-1/2": positionX === "center",
               "-bottom-7": positionY === "bottom",
               "-top-7": positionY === "top",
-            }
+            },
           )}
           id={tooltipId}
           ref={tooltipRef}

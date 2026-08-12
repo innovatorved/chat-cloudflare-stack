@@ -1,78 +1,71 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
+import { getAgentByName, type Schedule } from "agents";
+
+import { getSchedulePrompt } from "agents/schedule";
+import {
+  convertToModelMessages,
+  type GenerateTextOnFinishCallback,
+  isStepCount,
+  streamText,
+  type ToolSet,
+} from "ai";
+import { tools } from "@/tools";
+import { model } from "./lib/ai";
+import { createChat, getChatById, getChatsByUserId } from "./lib/db";
+import { getAuthPolicies } from "./lib/policy";
 import {
   generateRandomUUID,
   getSessionCookie,
   processChatsData,
 } from "./lib/utils";
-import { getAgentByName, type Schedule } from "agents";
-
-import { getAuthPolicies } from "./lib/policy";
-
-import { unstable_getSchedulePrompt } from "agents/schedule";
-import { AIChatAgent } from "agents/ai-chat-agent";
-import {
-  createDataStreamResponse,
-  streamText,
-  type StreamTextOnFinishCallback,
-} from "ai";
-import { AsyncLocalStorage } from "node:async_hooks";
-import { executions, tools } from "@/tools";
-import { processToolCalls } from "./utils";
-import { createChat, getChatById, getChatsByUserId } from "./lib/db";
 import {
   checkAuthenticatedUserRoute,
   loginUserRoute,
   logoutUserRoute,
   registerUserRoute,
 } from "./routes/auth";
-import { model } from "./lib/ai";
 
 export const agentContext = new AsyncLocalStorage<Chat>();
 
 export class Chat extends AIChatAgent<Env> {
-  async onChatMessage(onFinish: StreamTextOnFinishCallback<{}>) {
+  async onChatMessage(
+    onFinish?: GenerateTextOnFinishCallback<ToolSet>,
+    _options?: OnChatMessageOptions,
+  ) {
     return agentContext.run(this, async () => {
-      const dataStreamResponse = createDataStreamResponse({
-        execute: async (dataStream) => {
-          const processedMessages = await processToolCalls({
-            messages: this.messages,
-            dataStream,
-            tools,
-            executions,
-          });
-
-          const result = streamText({
-            model: model,
-            system: `You are a helpful assistant...
-${unstable_getSchedulePrompt({ date: new Date() })}
+      const result = streamText({
+        model: model,
+        system: `You are a helpful assistant...
+${getSchedulePrompt({ date: new Date() })}
 If the user asks to schedule a task, use the schedule tool to schedule the task.`,
-            messages: processedMessages,
-            tools,
-            onFinish,
-            onError: (error) => console.error("Error while streaming:", error),
-            maxSteps: 10,
-          });
-          result.mergeIntoDataStream(dataStream);
-        },
+        messages: await convertToModelMessages(this.messages),
+        tools,
+        onFinish,
+        onError: (error) => console.error("Error while streaming:", error),
+        stopWhen: isStepCount(10),
       });
-      return dataStreamResponse;
+
+      return result.toUIMessageStreamResponse();
     });
   }
 
-  async executeTask(description: string, task: Schedule<string>) {
-    await this.saveMessages([
-      ...this.messages,
+  async executeTask(description: string, _task: Schedule<string>) {
+    await this.saveMessages((messages) => [
+      ...messages,
       {
         id: generateRandomUUID(),
         role: "user",
-        content: `Running scheduled task: ${description}`,
-        createdAt: new Date(),
+        parts: [
+          { type: "text", text: `Running scheduled task: ${description}` },
+        ],
       },
     ]);
   }
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext) {
     const url = new URL(request.url);
 
     // 1. Healthcheck for API key
@@ -142,8 +135,8 @@ export default {
     if (userId === "no_user")
       return Response.json({ error: "Not authenticated" }, { status: 401 });
 
-    let namedAgent = getAgentByName<Env, Chat>(env.Chat, chatId);
-    let namedResp = (await namedAgent).fetch(request);
+    const namedAgent = getAgentByName<Env, Chat>(env.Chat, chatId);
+    const namedResp = (await namedAgent).fetch(request);
     return namedResp;
   },
 } satisfies ExportedHandler<Env>;

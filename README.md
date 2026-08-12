@@ -1,141 +1,60 @@
 # Cloudflare Chat App
 
-A modern chat application powered by the Cloudflare stack, offering secure, real-time messaging and persistent chat history.
+Real-time AI chat on Cloudflare Workers — Durable Objects, D1, KV, and custom auth.
 
-Live at: **[https://chat.vedgupta.in](https://chat.vedgupta.in)**
+**Live:** [chat.vedgupta.in](https://chat.vedgupta.in)
 
----
-
-## Features
-
-- **Real-Time Chat:** Fast messaging with Cloudflare Durable Objects for stateful chat rooms.
-- **Chat History:** Messages stored in Durable object and Cloudflare D1 for reliable retrieval by chat ID.
-- **User Authentication:** Only authorized users can access chat rooms via Custom Authentication.
-- **Edge Hosting:** Global, low-latency performance on Cloudflare’s edge network.
-
-## Technical Stack
-
-- **Frontend:** React, Vite.
-- **Serverless Backend:** Cloudflare Workers
-- **State Management:** Cloudflare Durable Objects
-- **Database:** Cloudflare D1 (serverless SQLite)
-- **Caching:** Cloudflare KV for caching and metadata storage
-- **Authentication:** Custom Authentication Security
+**Stack:** React, Vite, Workers, Durable Objects, D1, KV, AI SDK, [@cloudflare/ai-chat](https://www.npmjs.com/package/@cloudflare/ai-chat). Tooling: [Bun](https://bun.sh), TypeScript, [Biome](https://biomejs.dev).
 
 ---
 
-## How It Works
-
-1. **Messages** are saved to D1, organized by chat ID.
-2. **Authentication:** Users must log in using Custom Authentication before chat access.
-3. **Chat history** is loaded from D1 when entering a room; new messages are stored instantly.
-4. **KV bindings** are used for caching and storing room/user metadata.
-
----
-
-## Prerequisites
-
-- Cloudflare account
-- Access to Cloudflare Workers, Durable Objects, D1, and Custom Authentication
-
----
-
-## Getting Started
-
-Follow these steps **in order** to get your own deployment running:
-
-### 1. Clone the repository
+## Setup
 
 ```bash
 git clone https://github.com/innovatorved/chat-cloudflare-stack.git
 cd chat-cloudflare-stack
+bun install
 ```
 
-### 2. Install dependencies
+1. Configure bindings in `wrangler.jsonc` (D1, KV, Durable Objects).
+2. Copy `.dev.vars.example` → `.dev.vars` for local secrets.
+3. Set the Google AI key (production):
 
 ```bash
-npm install
+bunx wrangler secret put GOOGLE_GENERATIVE_AI_API_KEY
 ```
 
-### 3. Set up your Cloudflare environment
-
-- Configure your `wrangler.jsonc` with proper bindings (D1, Durable Objects, KV, etc.).
-- Set up environment variables as needed.
-
-**If your app uses the Google Generative AI API, make sure to add your API key to Cloudflare secrets:**
+4. Apply the D1 schema:
 
 ```bash
-npx wrangler secret put GOOGLE_GENERATIVE_AI_API_KEY
+bunx wrangler d1 execute chat-user-id-db --local --file=./schema.sql   # local
+bunx wrangler d1 execute chat-user-id-db --remote --file=./schema.sql  # production
 ```
 
-### 4. Create the D1 Database
-
-**Deploy your D1 database schema locally (for development):**
+5. Upload auth policies from `auth-policies.json`:
 
 ```bash
-npx wrangler d1 execute chat-user-id-db --local --file=./schema.sql
+bunx wrangler kv key put --binding=CACHE_CHAT auth-policies "$(cat auth-policies.json)" --local
+bunx wrangler kv key put --binding=CACHE_CHAT auth-policies "$(cat auth-policies.json)"
 ```
 
-**Or push your schema to Cloudflare (production):**
+6. Run locally:
 
 ```bash
-npx wrangler d1 execute chat-user-id-db --remote --file=./schema.sql
-```
-
-### 5. Create your KV Namespace
-
-Used for caching and metadata:
-
-```bash
-npx wrangler kv namespace create CACHE_CHAT
-```
-
-### 6. Configure Authentication
-
-Authentication policies are defined in the `auth-policies.json` file.
-Ensure this file includes your desired password and login policies, and that it is uploaded to Cloudflare KV as shown above.
-
-Custom Authentication will enforce the settings from `auth-policies.json` during user registration and login.
-
-**Upload your authentication policies (for development):**
-
-```bash
-npx wrangler kv key put --binding=CACHE_CHAT auth-policies "$(cat auth-policies.json) ---local"
-```
-
-**Upload your authentication policies:**
-
-```bash
-npx wrangler kv key put --binding=CACHE_CHAT auth-policies "$(cat auth-policies.json)"
+bun run start
 ```
 
 ---
 
-## Deployment
-
-Once everything is configured:
+## Deploy
 
 ```bash
-npm run deploy
+bun run deploy
 ```
 
----
-
-## Database Structure
-
-- **Durable Objects:** For real-time chat room state.
-- **Cloudflare D1:** For persistent user/message history, organized by chat ID.
-- **KV:** For caching queries and storing ephemeral room/user metadata.
+Production is served on the custom domain only (`workers_dev` and preview URLs are disabled in `wrangler.jsonc`).
 
 ---
 
-## Hosting
-
-- The application is live at [https://chat.vedgupta.in](https://chat.vedgupta.in).
-
----
-
-## Attribution
-
-Built atop [cloudflare/agents-starter](https://github.com/cloudflare/agents-starter).
-_Last modified by **Ved Gupta** – [vedgupta.in](https://vedgupta.in)_
+Built on [cloudflare/agents-starter](https://github.com/cloudflare/agents-starter).  
+_Ved Gupta — [vedgupta.in](https://vedgupta.in)_

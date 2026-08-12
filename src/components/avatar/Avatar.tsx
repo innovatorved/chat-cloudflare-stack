@@ -42,7 +42,7 @@ const AvatarComponent = ({
           "after:opacity-100": image && toggled,
           toggle: !image && toggled,
         },
-        className
+        className,
       )}
       href={href}
       rel={external ? "noopener noreferrer" : undefined}

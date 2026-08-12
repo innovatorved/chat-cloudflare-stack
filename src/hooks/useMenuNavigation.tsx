@@ -16,8 +16,8 @@ export const useMenuNavigation = ({
 
     const focusableElements = Array.from(
       menuRef.current.querySelectorAll(
-        'a, button, input, textarea, select, details, [tabindex]:not([tabindex="-1"])'
-      )
+        'a, button, input, textarea, select, details, [tabindex]:not([tabindex="-1"])',
+      ),
     ) as HTMLElement[];
 
     if (focusableElements.length === 0) return;

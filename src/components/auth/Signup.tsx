@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/button/Button";
-import { Input } from "@/components/input/Input";
 import { Card } from "@/components/card/Card";
+import { Input } from "@/components/input/Input";
 
 export default function SignUp({
   onSignUp,
@@ -22,7 +22,7 @@ export default function SignUp({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await resp.json();
+    const data = await resp.json<{ success: boolean; message?: string }>();
     if (data.success) {
       onSignUp();
     } else {

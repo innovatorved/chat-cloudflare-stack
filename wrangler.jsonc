@@ -2,48 +2,50 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "chat-app",
   "main": "src/server.ts",
+  "workers_dev": false,
+  "preview_urls": false,
   "compatibility_date": "2025-02-04",
   "compatibility_flags": [
     "nodejs_compat",
-    "nodejs_compat_populate_process_env",
+    "nodejs_compat_populate_process_env"
   ],
   "observability": {
-    "enabled": true,
+    "enabled": true
   },
   "assets": {
-    "directory": "public",
+    "directory": "public"
   },
   "durable_objects": {
     "bindings": [
       {
         "name": "Chat",
-        "class_name": "Chat",
-      },
-    ],
+        "class_name": "Chat"
+      }
+    ]
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "chat-user-id-db",
-      "database_id": "c02037dc-20fd-4624-8b7e-885b43285b53",
-    },
+      "database_id": "c02037dc-20fd-4624-8b7e-885b43285b53"
+    }
   ],
   "kv_namespaces": [
     {
       "binding": "CACHE_CHAT",
-      "id": "44668a1301224e87b7b372104d338d5e",
-    },
+      "id": "44668a1301224e87b7b372104d338d5e"
+    }
   ],
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["Chat"],
-    },
+      "new_sqlite_classes": ["Chat"]
+    }
   ],
   "routes": [
     {
       "pattern": "chat.vedgupta.in",
-      "custom_domain": true,
-    },
-  ],
+      "custom_domain": true
+    }
+  ]
 }

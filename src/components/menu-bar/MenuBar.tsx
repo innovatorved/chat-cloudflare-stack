@@ -1,8 +1,8 @@
+import { IconContext } from "@phosphor-icons/react";
+import { useRef } from "react";
 import { Tooltip } from "@/components/tooltip/Tooltip";
 import { useMenuNavigation } from "@/hooks/useMenuNavigation";
 import { cn } from "@/lib/utils";
-import { IconContext } from "@phosphor-icons/react";
-import { useRef } from "react";
 
 type MenuOptionProps = {
   icon: React.ReactNode;
@@ -31,7 +31,7 @@ const MenuOption = ({
         {
           "text-ob-base-300 bg-ob-base-200 focus-visible:border-ob-focus":
             isActive === id,
-        }
+        },
       )}
       onClick={onClick}
     >
@@ -61,7 +61,7 @@ export const MenuBar = ({
     <nav
       className={cn(
         "bg-ob-base-100 flex rounded-lg shadow-xs transition-colors",
-        className
+        className,
       )}
       ref={menuRef}
     >

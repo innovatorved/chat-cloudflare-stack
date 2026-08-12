@@ -2,18 +2,15 @@
  * Tool definitions for the AI chat agent
  * Tools can either require human confirmation or execute automatically
  */
+
+import { scheduleSchema } from "agents/schedule";
 import { tool } from "ai";
 import { z } from "zod";
-
 import { agentContext } from "./server";
-import {
-  unstable_getSchedulePrompt,
-  unstable_scheduleSchema,
-} from "agents/schedule";
 
 const scheduleTask = tool({
   description: "A tool to schedule a task to be executed at a later time",
-  parameters: unstable_scheduleSchema,
+  inputSchema: scheduleSchema,
   execute: async ({ when, description }) => {
     // we can now read the agent context from the ALS store
     const agent = agentContext.getStore();
@@ -50,7 +47,7 @@ const scheduleTask = tool({
  */
 const getScheduledTasks = tool({
   description: "List all tasks that have been scheduled",
-  parameters: z.object({}),
+  inputSchema: z.object({}),
   execute: async () => {
     const agent = agentContext.getStore();
     if (!agent) {
@@ -75,7 +72,7 @@ const getScheduledTasks = tool({
  */
 const cancelScheduledTask = tool({
   description: "Cancel a scheduled task using its ID",
-  parameters: z.object({
+  inputSchema: z.object({
     taskId: z.string().describe("The ID of the task to cancel"),
   }),
   execute: async ({ taskId }) => {
@@ -102,10 +99,3 @@ export const tools = {
   getScheduledTasks,
   cancelScheduledTask,
 };
-
-/**
- * Implementation of confirmation-required tools
- * This object contains the actual logic for tools that need human approval
- * Each function here corresponds to a tool above that doesn't have an execute function
- */
-export const executions = {};

@@ -18,7 +18,7 @@ export const Toggle = ({ onClick, size = "base", toggled }: ToggleProps) => {
           "h-7.5 w-12.5": size === "lg",
           "dark:hover:bg-neutral-450 bg-neutral-900 hover:bg-neutral-700 dark:bg-neutral-500":
             toggled,
-        }
+        },
       )}
       onClick={onClick}
     >
@@ -27,7 +27,7 @@ export const Toggle = ({ onClick, size = "base", toggled }: ToggleProps) => {
           "aspect-square h-full rounded-full bg-white transition-all",
           {
             "translate-x-full": toggled,
-          }
+          },
         )}
       />
     </button>

@@ -1,4 +1,4 @@
-import { clsx, type ClassValue } from "clsx";
+import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function getCookieValue(
   cookieHeader: string,
-  key: string
+  key: string,
 ): string | null {
   const cookies = cookieHeader.split(";");
   for (const cookie of cookies) {

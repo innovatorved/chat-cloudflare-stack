@@ -1,10 +1,10 @@
 const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_HASH = "SHA-256";
-const PBKDF2_KEYLEN = 32; // 256 bits
+const _PBKDF2_KEYLEN = 32; // 256 bits
 
 // Generate a new salt and password hash
 export async function hashPassword(
-  password: string
+  password: string,
 ): Promise<{ salt: string; hash: string }> {
   const enc = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -13,7 +13,7 @@ export async function hashPassword(
     enc.encode(password),
     { name: "PBKDF2" },
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
 
   const key = await crypto.subtle.deriveKey(
@@ -26,7 +26,7 @@ export async function hashPassword(
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 
   const rawKey = await crypto.subtle.exportKey("raw", key);
@@ -40,16 +40,16 @@ export async function hashPassword(
 export async function verifyPassword(
   password: string,
   saltHex: string,
-  hashHex: string
+  hashHex: string,
 ): Promise<boolean> {
   const enc = new TextEncoder();
-  const salt = fromHex(saltHex);
+  const salt = new Uint8Array(fromHex(saltHex));
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     enc.encode(password),
     { name: "PBKDF2" },
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
 
   const key = await crypto.subtle.deriveKey(
@@ -62,7 +62,7 @@ export async function verifyPassword(
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 
   const rawKey = await crypto.subtle.exportKey("raw", key);
@@ -79,7 +79,9 @@ function toHex(b: Uint8Array): string {
 }
 
 function fromHex(hex: string): Uint8Array {
-  return new Uint8Array(hex.match(/.{1,2}/g)!.map((x) => parseInt(x, 16)));
+  return new Uint8Array(
+    hex.match(/.{1,2}/g)!.map((x) => Number.parseInt(x, 16)),
+  );
 }
 
 // timing safe compare

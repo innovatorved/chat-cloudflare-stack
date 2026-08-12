@@ -61,7 +61,7 @@ const ButtonComponent = ({
 
           toggle: toggled,
         },
-        className
+        className,
       )}
       disabled={disabled}
       href={href}

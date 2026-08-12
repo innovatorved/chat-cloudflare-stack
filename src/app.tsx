@@ -1,14 +1,13 @@
-import { useEffect, useState, useCallback } from "react";
+import { ArrowLeft, ChatText, Plus } from "@phosphor-icons/react";
+import { useCallback, useEffect, useState } from "react";
+import Login from "@/components/auth/Login";
+import SignUp from "@/components/auth/Signup";
+import { Avatar } from "@/components/avatar/Avatar";
 import { Button } from "@/components/button/Button";
 import { Card } from "@/components/card/Card";
 import { Input } from "@/components/input/Input";
-import { Avatar } from "@/components/avatar/Avatar";
-import Login from "@/components/auth/Login";
-import SignUp from "@/components/auth/Signup";
-import { ArrowLeft, ChatText, Plus } from "@phosphor-icons/react";
 import Chat from "./chat";
 import { formatRelativeTime, generateRandomUUID } from "./lib/utils";
-import { Toggle } from "./components/toggle/Toggle";
 
 interface ChatInterface {
   chatId: string;
